@@ -89,7 +89,7 @@ func main() {
 	reflection.Register(s)
 
 	httpServer := &http.Server{
-		Addr: ":8080",
+		Addr: ":8081",
 	}
 
 	metricsMdw := metrics.New(appLogger)
@@ -119,7 +119,7 @@ func main() {
 		finalMux.HandleFunc("/metrics", mHandler.GetMetrics)
 
 		httpServer.Handler = finalMux
-		appLogger.Info("gateway listening at :8080")
+		appLogger.Info("gateway listening at :8081")
 		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			appLogger.Fatal("gateway listen error", logger.Error(err))
 		}
