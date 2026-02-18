@@ -150,13 +150,12 @@ services:
       - infrastructure_default
 
   service-order:
+    image: eduard3000/service-order:latest
     build:
       context: .
       target: service
     depends_on:
       postgres:
-        condition: service_healthy
-      clickhouse:
         condition: service_healthy
     environment:
       - DATABASE_URL=postgres://user:password@postgres:5432/db?sslmode=disable
