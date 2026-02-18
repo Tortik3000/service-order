@@ -25,10 +25,10 @@ services:
       - infrastructure_default
 
   service-order:
-#    image: eduard3000/service-order:latest
-    build:
-      context: .
-      target: service
+    image: eduard3000/service-order:latest
+#    build:
+#      context: .
+#      target: service
     container_name: service-order
     depends_on:
       postgres:
