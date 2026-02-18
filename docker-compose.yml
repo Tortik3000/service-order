@@ -44,9 +44,38 @@ services:
         condition: service_healthy
     entrypoint: ["/bin/bash", "-c"]
     command: |
-      kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic numbers --partitions 1 --replication-factor 1
-      kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic numbers-dlq --partitions 1 --replication-factor 1
-      printf '10\n-4\n3\n-8\nabc\n15\n' | kafka-console-producer --bootstrap-server kafka:29092 --topic numbers
+      set -euo pipefail
+
+      create_topic_with_retry() {
+        local topic="$1"
+
+        for i in {1..10}; do
+          if kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic "$topic" --partitions 1 --replication-factor 1; then
+            return 0
+          fi
+
+          echo "Retrying topic creation for '$topic' ($i/10)..."
+          sleep 2
+        done
+
+        echo "Failed to create topic '$topic' after retries"
+        return 1
+      }
+
+      create_topic_with_retry numbers
+      create_topic_with_retry numbers-dlq
+
+      for i in {1..10}; do
+        if printf '10\n-4\n3\n-8\nabc\n15\n' | kafka-console-producer --bootstrap-server kafka:29092 --topic numbers; then
+          exit 0
+        fi
+
+        echo "Retrying seed message publish ($i/10)..."
+        sleep 2
+      done
+
+      echo "Failed to publish seed messages after retries"
+      exit 1
     networks:
       - infrastructure_default
 
@@ -146,4 +175,3 @@ volumes:
   prometheus-data:
   grafana-data:
   clickhouse-data:
-
