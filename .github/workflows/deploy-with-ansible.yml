@@ -1,0 +1,59 @@
+name: Deploy with Ansible
+
+on:
+  workflow_dispatch:
+    inputs:
+      host:
+        description: "SSH host (IP/DNS)"
+        required: true
+      ssh_user:
+        description: "SSH user"
+        required: false
+        default: root
+      ssh_port:
+        description: "SSH port"
+        required: false
+        default: "22"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Ansible and Docker collection
+        run: |
+          python -m pip install --upgrade pip
+          pip install ansible
+          ansible-galaxy collection install community.docker
+
+      - name: Prepare SSH key
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+        run: |
+          if [ -z "$SSH_PRIVATE_KEY" ]; then
+            echo "SSH_PRIVATE_KEY secret is not set"
+            exit 1
+          fi
+
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          touch ~/.ssh/known_hosts
+          ssh-keyscan -p "${{ inputs.ssh_port }}" -H "${{ inputs.host }}" >> ~/.ssh/known_hosts
+
+      - name: Build dynamic inventory
+        run: |
+          cat > bot_playbook/inventories/github-actions.ini <<INVENTORY
+          [service-order]
+          ${{ inputs.host }} ansible_user=${{ inputs.ssh_user }} ansible_port=${{ inputs.ssh_port }}
+          INVENTORY
+
+      - name: Run Ansible playbook
+        working-directory: bot_playbook
+        env:
+          ANSIBLE_HOST_KEY_CHECKING: "True"
+        run: |
+          ansible-playbook -i inventories/github-actions.ini site.yml
