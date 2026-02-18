@@ -1,0 +1,8 @@
+---
+- name: Deploy Service Order with Docker
+  hosts: all
+  gather_facts: true
+  vars_files:
+    - group_vars/vars.yml
+  roles:
+    - role: roles/docker_compose

@@ -1,0 +1,114 @@
+syntax = "proto3";
+
+package menu;
+
+import "google/api/annotations.proto";
+import "validate/validate.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "api/menu";
+
+message Category {
+  string id = 1;
+  string name = 2 [(validate.rules).string.min_len = 1];
+  int32 sort_order = 3 [(validate.rules).int32.gt = 0];
+}
+
+message MenuItem {
+  string id = 1;
+  string category_id = 2 [(validate.rules).string.uuid = true];
+  string name = 3 [(validate.rules).string.min_len = 1];
+  string description = 4;
+  int64 price = 5 [(validate.rules).int64.gt = 0];
+  bool active = 6;
+}
+
+service MenuService {
+  rpc GetMenuByCategory (GetMenuByCategoryRequest)
+      returns (GetMenuByCategoryResponse) {
+    option (google.api.http) = {
+      get: "/v1/menu/category/{category_id}"
+    };
+  }
+
+  rpc GetMenuItem (GetMenuItemRequest)
+      returns (GetMenuItemResponse) {
+    option (google.api.http) = {
+      get: "/v1/menu/item/{menu_item_id}"
+    };
+  }
+
+  rpc CreateMenuItem (CreateMenuItemRequest)
+      returns (CreateMenuItemResponse) {
+    option (google.api.http) = {
+      post: "/v1/menu/item"
+      body: "*"
+    };
+  }
+
+  rpc UpdateMenuItem (UpdateMenuItemRequest)
+      returns (UpdateMenuItemResponse) {
+    option (google.api.http) = {
+      put: "/v1/menu/item/{id}"
+      body: "*"
+    };
+  }
+
+  rpc CreateCategory (CreateCategoryRequest)
+      returns (CreateCategoryResponse) {
+    option (google.api.http) = {
+      post: "/v1/menu/category"
+      body: "*"
+    };
+  }
+}
+
+message GetMenuByCategoryRequest {
+  string category_id = 2;
+}
+
+message GetMenuByCategoryResponse {
+  Category category = 1;
+  repeated MenuItem items = 2;
+}
+
+message GetMenuItemRequest {
+  string restaurant_id = 1;
+  string menu_item_id = 2;
+}
+
+message GetMenuItemResponse {
+  MenuItem item = 1;
+}
+
+message CreateMenuItemRequest {
+  string category_id = 2 [(validate.rules).string.uuid = true];
+  string name = 3 [(validate.rules).string.min_len = 1];
+  string description = 4;
+  double price = 5 [(validate.rules).double.gt = 0];
+}
+
+message CreateMenuItemResponse {
+  MenuItem item = 1;
+}
+
+message UpdateMenuItemRequest {
+  string id = 1 [(validate.rules).string.uuid = true];
+  string category_id = 2 [(validate.rules).string.uuid = true];
+  string name = 3 [(validate.rules).string.min_len = 1];
+  string description = 4;
+  double price = 5 [(validate.rules).double.gt = 0];
+}
+
+message UpdateMenuItemResponse {
+  MenuItem item = 1;
+}
+
+message CreateCategoryRequest {
+  string name = 1 [(validate.rules).string.min_len = 1];
+  int32 sort_order = 2 [(validate.rules).int32.gt = 0];
+}
+
+message CreateCategoryResponse {
+  Category category = 1;
+}

@@ -1,0 +1,19 @@
+---
+- name: Create application user
+  ansible.builtin.user:
+    name: "{{ app_user }}"
+    shell: /bin/bash
+    home: "/home/{{ app_user }}"
+    create_home: yes
+    state: present
+  become: yes
+  tags: user
+- name: Create application directory
+  ansible.builtin.file:
+    path: "{{ app_path }}"
+    state: directory
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+    mode: "0775"
+  become: yes
+  tags: user

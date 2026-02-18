@@ -1,0 +1,28 @@
+---
+- name: Ensure Docker is installed
+  ansible.builtin.package:
+    name: docker.io
+    state: present
+  become: yes
+  tags: docker
+- name: Create plugins directory if not exists
+  ansible.builtin.file:
+    path: /usr/libexec/docker/cli-plugins
+    state: directory
+    mode: "0755"
+  become: yes
+  tags: docker
+- name: Install Docker Compose as plugin
+  ansible.builtin.get_url:
+    url: "https://github.com/docker/compose/releases/download/{{ docker_compose_version }}/docker-compose-linux-x86_64"
+    dest: /usr/libexec/docker/cli-plugins/docker-compose
+    mode: "0755"
+  become: yes
+  tags: docker
+- name: Start Docker service
+  ansible.builtin.systemd:
+    name: docker
+    state: started
+    enabled: yes
+  become: yes
+  tags: docker

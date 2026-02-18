@@ -1,0 +1,6 @@
+---
+app_path: /opt/my-service-order
+app_user: orderadmin
+docker_compose_version: "v2.24.0"
+docker_compose_src: "../docker-compose.yml"
+docker_compose_file: "{{ app_path }}/docker-compose.yml"
