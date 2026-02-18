@@ -1,6 +1,72 @@
 version: '3.7'
 
 services:
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.1
+    container_name: service-order-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    networks:
+      - infrastructure_default
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.1
+    container_name: service-order-kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:29092,PLAINTEXT_HOST://0.0.0.0:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:9092 --list >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - infrastructure_default
+
+  kafka-init:
+    image: confluentinc/cp-kafka:7.6.1
+    container_name: service-order-kafka-init
+    depends_on:
+      kafka:
+        condition: service_healthy
+    entrypoint: ["/bin/bash", "-c"]
+    command: |
+      kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic numbers --partitions 1 --replication-factor 1
+      kafka-topics --bootstrap-server kafka:29092 --create --if-not-exists --topic numbers-dlq --partitions 1 --replication-factor 1
+      printf '10\n-4\n3\n-8\nabc\n15\n' | kafka-console-producer --broker-list kafka:29092 --topic numbers
+    networks:
+      - infrastructure_default
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.8
+    container_name: service-order-clickhouse
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+      - ./infra/clickhouse/init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - infrastructure_default
+
   postgres:
     image: postgres:15
     container_name: service-order-postgres
@@ -81,5 +147,6 @@ volumes:
   pgdata:
   prometheus-data:
   grafana-data:
+  clickhouse-data:
 
 
