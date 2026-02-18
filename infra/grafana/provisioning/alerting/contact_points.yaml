@@ -1,9 +1,12 @@
 apiVersion: 1
 
 contactPoints:
-  - name: default-email
+  - orgId: 1
+    name: default-email
+    uid: default-email
     receivers:
-      - type: email
+      - uid: default-email-receiver
+        type: email
         settings:
           addresses: admin@example.com
         disableResolveMessage: false

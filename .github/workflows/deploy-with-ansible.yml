@@ -34,8 +34,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Create vault password file
-        run: echo '${{ secrets.ANSIBLE_VAULT_PASSWORD }}' > bot_playbook/.vault_pass.txt
+#      - name: Create vault password file
+#        run: echo '${{ secrets.ANSIBLE_VAULT_PASSWORD }}' > bot_playbook/.vault_pass.txt
 
       - name: Deploy ServiceOrder
         uses: dawidd6/action-ansible-playbook@v2
@@ -45,5 +45,5 @@ jobs:
           inventory: |
             [all]
             ${{ secrets.ANSIBLE_HOST }} ansible_ssh_port=${{ secrets.ANSIBLE_SSH_PORT }} ansible_ssh_user=${{ secrets.ANSIBLE_SSH_USER }}
-          key: ${{ secrets.SSH_PRIV_KEY }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
           options: --verbose

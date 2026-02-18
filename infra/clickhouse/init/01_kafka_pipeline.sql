@@ -1,17 +1,19 @@
 CREATE DATABASE IF NOT EXISTS analytics;
 
+
 CREATE TABLE IF NOT EXISTS analytics.numbers_stream
 (
     payload String
 )
 ENGINE = Kafka
 SETTINGS
-    kafka_broker_list = 'kafka:9092',
+    kafka_broker_list = 'kafka:29092',
     kafka_topic_list = 'numbers',
     kafka_group_name = 'clickhouse-numbers-consumer',
     kafka_format = 'RawBLOB',
     kafka_num_consumers = 1,
     kafka_thread_per_consumer = 0;
+
 
 CREATE TABLE IF NOT EXISTS analytics.numbers_parsed
 (
@@ -23,11 +25,13 @@ ORDER BY ingested_at;
 
 CREATE TABLE IF NOT EXISTS analytics.sum_by_sign
 (
+    k UInt8,
     positive_sum Int64,
     negative_sum Int64
 )
 ENGINE = SummingMergeTree
-ORDER BY tuple();
+ORDER BY k;
+
 
 CREATE TABLE IF NOT EXISTS analytics.numbers_dlq_producer
 (
@@ -37,9 +41,11 @@ CREATE TABLE IF NOT EXISTS analytics.numbers_dlq_producer
 )
 ENGINE = Kafka
 SETTINGS
-    kafka_broker_list = 'kafka:9092',
+    kafka_broker_list = 'kafka:29092',
     kafka_topic_list = 'numbers-dlq',
+    kafka_group_name = 'clickhouse-dlq-producer',
     kafka_format = 'JSONEachRow';
+
 
 CREATE TABLE IF NOT EXISTS analytics.numbers_dlq_stream
 (
@@ -49,12 +55,13 @@ CREATE TABLE IF NOT EXISTS analytics.numbers_dlq_stream
 )
 ENGINE = Kafka
 SETTINGS
-    kafka_broker_list = 'kafka:9092',
+    kafka_broker_list = 'kafka:29092',
     kafka_topic_list = 'numbers-dlq',
     kafka_group_name = 'clickhouse-dlq-consumer',
     kafka_format = 'JSONEachRow',
     kafka_num_consumers = 1,
     kafka_thread_per_consumer = 0;
+
 
 CREATE TABLE IF NOT EXISTS analytics.numbers_dlq
 (
@@ -65,24 +72,38 @@ CREATE TABLE IF NOT EXISTS analytics.numbers_dlq
 ENGINE = MergeTree
 ORDER BY failed_at;
 
-CREATE MATERIALIZED VIEW IF NOT EXISTS analytics.mv_numbers_to_parsed
+DROP VIEW IF EXISTS analytics.mv_numbers_to_parsed;
+
+CREATE MATERIALIZED VIEW analytics.mv_numbers_to_parsed
 TO analytics.numbers_parsed
 AS
-SELECT toInt64(payload) AS value, now() AS ingested_at
+WITH
+    trim(BOTH ' \n\r\t' FROM payload) AS p,
+    toInt64OrNull(p) AS v
+SELECT
+    assumeNotNull(v) AS value,
+    now() AS ingested_at
 FROM analytics.numbers_stream
-WHERE toInt64OrNull(payload) IS NOT NULL;
+WHERE v IS NOT NULL;
 
-CREATE MATERIALIZED VIEW IF NOT EXISTS analytics.mv_numbers_to_dlq_topic
+DROP VIEW IF EXISTS analytics.mv_numbers_to_dlq_topic;
+
+CREATE MATERIALIZED VIEW analytics.mv_numbers_to_dlq_topic
 TO analytics.numbers_dlq_producer
 AS
+WITH
+    trim(BOTH ' \n\r\t' FROM payload) AS p,
+    toInt64OrNull(p) AS v
 SELECT
     payload AS original_value,
     'Message is not a valid Int64' AS error,
     now() AS failed_at
 FROM analytics.numbers_stream
-WHERE toInt64OrNull(payload) IS NULL;
+WHERE v IS NULL;
 
-CREATE MATERIALIZED VIEW IF NOT EXISTS analytics.mv_dlq_topic_to_table
+DROP VIEW IF EXISTS analytics.mv_dlq_topic_to_table;
+
+CREATE MATERIALIZED VIEW analytics.mv_dlq_topic_to_table
 TO analytics.numbers_dlq
 AS
 SELECT
@@ -91,10 +112,13 @@ SELECT
     failed_at
 FROM analytics.numbers_dlq_stream;
 
-CREATE MATERIALIZED VIEW IF NOT EXISTS analytics.mv_sum_by_sign
+DROP VIEW IF EXISTS analytics.mv_sum_by_sign;
+
+CREATE MATERIALIZED VIEW analytics.mv_sum_by_sign
 TO analytics.sum_by_sign
 AS
 SELECT
+    1 AS k,
     if(value > 0, value, 0) AS positive_sum,
     if(value < 0, value, 0) AS negative_sum
 FROM analytics.numbers_parsed;
