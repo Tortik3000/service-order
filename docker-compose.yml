@@ -1,5 +1,48 @@
 services:
+  postgres:
+    image: postgres:15
+    container_name: service-order-postgres
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: "user"
+      POSTGRES_PASSWORD: "password"
+      POSTGRES_DB: "db"
+      POSTGRES_PORT: "5432"
+    ports:
+      - "5432:5432"
+    command:
+      - "postgres"
+      - "-c"
+      - "port=5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB -h localhost -p 5432 >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - infrastructure_default
+
+  service-order:
+#    image: eduard3000/service-order:latest
+    build:
+      context: .
+      target: service
+    container_name: service-order
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgres://user:password@postgres:5432/db?sslmode=disable
+    ports:
+      - "50051:50051"
+      - "8080:8080"
+    networks:
+      - infrastructure_default
+
   zookeeper:
+    profiles: ["infra"]
     image: confluentinc/cp-zookeeper:7.6.1
     container_name: service-order-zookeeper
     environment:
@@ -17,6 +60,7 @@ services:
       - infrastructure_default
 
   kafka:
+    profiles: ["infra"]
     image: confluentinc/cp-kafka:7.6.1
     container_name: service-order-kafka
     depends_on:
@@ -43,8 +87,8 @@ services:
     networks:
       - infrastructure_default
 
-
   kafka-init:
+    profiles: ["infra"]
     image: confluentinc/cp-kafka:7.6.1
     container_name: service-order-kafka-init
     depends_on:
@@ -85,6 +129,7 @@ services:
       - infrastructure_default
 
   clickhouse:
+    profiles: ["infra"]
     image: clickhouse/clickhouse-server:24.8
     container_name: service-order-clickhouse
     depends_on:
@@ -105,8 +150,8 @@ services:
     networks:
       - infrastructure_default
 
-
   kafka-seed:
+    profiles: ["infra"]
     image: confluentinc/cp-kafka:7.6.1
     container_name: service-order-kafka-seed
     depends_on:
@@ -124,48 +169,11 @@ services:
     networks:
       - infrastructure_default
 
-  postgres:
-    image: postgres:15
-    container_name: service-order-postgres
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    environment:
-      POSTGRES_USER: "user"
-      POSTGRES_PASSWORD: "password"
-      POSTGRES_DB: "db"
-      POSTGRES_PORT: "5432"
-    ports:
-      - "5432:5432"
-    command:
-      - "postgres"
-      - "-c"
-      - "port=5432"
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB -h localhost -p 5432 >/dev/null 2>&1"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 10s
-    networks:
-      - infrastructure_default
-
-  service-order:
-    image: eduard3000/service-order:latest
-    build:
-      context: .
-      target: service
-    depends_on:
-      postgres:
-        condition: service_healthy
-    environment:
-      - DATABASE_URL=postgres://user:password@postgres:5432/db?sslmode=disable
-    ports:
-      - "50051:50051"
-      - "8080:8080"
-    networks:
-      - infrastructure_default
-
+  # -------------------------
+  # MONITORING PROFILE
+  # -------------------------
   prometheus:
+    profiles: ["monitoring"]
     image: prom/prometheus:latest
     container_name: prometheus
     ports:
@@ -186,6 +194,7 @@ services:
       - infrastructure_default
 
   grafana:
+    profiles: ["monitoring"]
     image: grafana/grafana:latest
     container_name: grafana
     depends_on:
