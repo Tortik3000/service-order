@@ -23,7 +23,7 @@ jobs:
         uses: docker/build-push-action@v2
         with:
           push: true
-          tags: tortik3000/service-order:latest
+          tags: eduard3000/service-order:latest
 
   deploy:
     name: Deploy with Ansible
