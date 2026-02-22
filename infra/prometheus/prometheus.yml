@@ -1,0 +1,4 @@
+scrape_configs:
+  - job_name: 'service-order'
+    static_configs:
+      - targets: ['service-order:8081']

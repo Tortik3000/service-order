@@ -1,0 +1,49 @@
+name: Pipeline for ServiceOrder
+
+on:
+  push:
+    branches: [main, dev]
+
+jobs:
+  build-and-push:
+    name: Build and Push Docker Image
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Publish to Registry
+        uses: docker/build-push-action@v2
+        with:
+          push: true
+          tags: eduard3000/service-order:latest
+
+  deploy:
+    name: Deploy with Ansible
+    runs-on: ubuntu-latest
+    needs: build-and-push
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+#      - name: Create vault password file
+#        run: echo '${{ secrets.ANSIBLE_VAULT_PASSWORD }}' > bot_playbook/.vault_pass.txt
+
+      - name: Deploy ServiceOrder
+        uses: dawidd6/action-ansible-playbook@v2
+        with:
+          playbook: bot_playbook/site.yml
+          directory: .
+          inventory: |
+            [all]
+            ${{ secrets.ANSIBLE_HOST }} ansible_ssh_port=${{ secrets.ANSIBLE_SSH_PORT }} ansible_ssh_user=${{ secrets.ANSIBLE_SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          options: --verbose

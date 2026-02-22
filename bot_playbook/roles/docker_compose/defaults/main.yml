@@ -1,0 +1,8 @@
+---
+app_path: /opt/my-service-order
+app_user: orderadmin
+docker_compose_version: "v2.24.0"
+project_root: "{{ playbook_dir }}/.."
+docker_compose_src: "{{ project_root }}/docker-compose.yml"
+infra_src: "{{ project_root }}/infra"
+docker_compose_file: "{{ app_path }}/docker-compose.yml"

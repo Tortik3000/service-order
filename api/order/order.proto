@@ -1,0 +1,141 @@
+syntax = "proto3";
+
+package order;
+
+option go_package = "api/order";
+
+import "google/api/annotations.proto";
+import "validate/validate.proto";
+import "google/protobuf/timestamp.proto";
+
+enum OrderStatus {
+  ORDER_STATUS_UNSPECIFIED = 0;
+  ORDER_STATUS_DRAFT = 1;
+  ORDER_STATUS_AWAITING_PAYMENT = 2;
+  ORDER_STATUS_PAID = 3;
+  ORDER_STATUS_IN_PROGRESS = 4;
+  ORDER_STATUS_READY = 5;
+  ORDER_STATUS_COMPLETED = 6;
+  ORDER_STATUS_CANCELLED = 7;
+  ORDER_STATUS_FAILED = 8;
+}
+
+message OrderItem {
+  string menu_item_id = 1 [(validate.rules).string.uuid = true];
+  int32 quantity = 2 [(validate.rules).int32.gt = 0];
+  int64 unit_price = 3 [(validate.rules).int64.gt = 0];
+}
+
+message Order {
+  string id = 1 [(validate.rules).string.uuid = true];
+  string user_id = 2 [(validate.rules).string.uuid = true];
+  string restaurant_id = 3;
+  OrderStatus status = 4 [(validate.rules).enum.defined_only = true];
+  int64 total_amount = 5 [(validate.rules).int64.gt = 0];
+  repeated OrderItem items = 6 [(validate.rules).repeated.min_items = 1];
+  int64 created_at = 7;
+}
+
+
+service OrderService {
+  rpc CreateOrder (CreateOrderRequest)
+      returns (CreateOrderResponse) {
+    option (google.api.http) = {
+      post: "/v1/order"
+      body: "*"
+    };
+  }
+
+  rpc GetOrder (GetOrderRequest)
+      returns (GetOrderResponse) {
+    option (google.api.http) = {
+      get: "/v1/order/{order_id}"
+    };
+  }
+
+  rpc ListUserOrders (ListUserOrdersRequest)
+      returns (ListUserOrdersResponse) {
+    option (google.api.http) = {
+      get: "/v1/user/{user_id}/orders"
+    };
+  }
+
+  rpc ListOrdersByStatus (ListOrdersByStatusRequest)
+      returns (ListOrdersByStatusResponse) {
+    option (google.api.http) = {
+      get: "/v1/order/status"
+    };
+  }
+
+  rpc CancelOrder (CancelOrderRequest)
+      returns (CancelOrderResponse) {
+    option (google.api.http) = {
+      post: "/v1/order/{order_id}/cancel"
+      body: "*"
+    };
+  }
+
+  rpc UpdateOrderStatus (UpdateOrderStatusRequest)
+      returns (UpdateOrderStatusResponse) {
+    option (google.api.http) = {
+      patch: "/v1/order/{order_id}/status"
+      body: "*"
+    };
+  }
+}
+
+message CreateOrderRequest {
+  string user_id = 1 [(validate.rules).string.uuid = true];
+  string restaurant_id = 2;
+  repeated OrderItem items = 3 [(validate.rules).repeated.min_items = 1];
+}
+
+message CreateOrderResponse {
+  Order order = 1;
+}
+
+message GetOrderRequest {
+  string order_id = 1;
+}
+
+message GetOrderResponse {
+  Order order = 1;
+}
+
+message ListUserOrdersRequest {
+  string user_id = 1;
+  int32 limit = 2;
+  int32 offset = 3;
+}
+
+message ListUserOrdersResponse {
+  repeated Order orders = 1;
+}
+
+message ListOrdersByStatusRequest {
+  repeated OrderStatus statuses = 1;
+  int32 limit = 2;
+  int32 offset = 3;
+}
+
+message ListOrdersByStatusResponse {
+  repeated Order orders = 1;
+}
+
+message CancelOrderRequest {
+  string order_id = 1;
+  string reason = 2;
+}
+
+message CancelOrderResponse {
+  Order order = 1;
+}
+
+message UpdateOrderStatusRequest {
+  string order_id = 1;
+  OrderStatus new_status = 2;
+}
+
+message UpdateOrderStatusResponse {
+  Order order = 1;
+}

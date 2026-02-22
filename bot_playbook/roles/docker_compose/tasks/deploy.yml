@@ -1,0 +1,42 @@
+---
+- name: Copy docker-compose.yml
+  ansible.builtin.copy:
+    src: "{{ docker_compose_src }}"
+    dest: "{{ docker_compose_file }}"
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+    mode: "0644"
+  become: yes
+  tags: deploy
+
+- name: Copy infra directories
+  ansible.builtin.copy:
+    src: "{{ infra_src }}"
+    dest: "{{ app_path }}/"
+    owner: "{{ app_user }}"
+    group: "{{ app_user }}"
+  become: yes
+  tags: deploy
+
+- name: Pull latest images
+  community.docker.docker_compose_v2:
+    project_src: "{{ app_path }}"
+    files:
+      - "{{ docker_compose_file }}"
+    pull: always
+  environment: "{{ docker_compose_environment | default({}) }}"
+  become: yes
+  tags: deploy
+
+- name: Deploy services with Docker Compose
+  community.docker.docker_compose_v2:
+    project_src: "{{ app_path }}"
+    files:
+      - "{{ docker_compose_file }}"
+    state: present
+    recreate: always
+    build: always
+    remove_orphans: yes
+  environment: "{{ docker_compose_environment | default({}) }}"
+  become: yes
+  tags: deploy

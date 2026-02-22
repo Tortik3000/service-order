@@ -1,0 +1,229 @@
+services:
+  postgres:
+    image: postgres:15
+    container_name: service-order-postgres
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: "user"
+      POSTGRES_PASSWORD: "password"
+      POSTGRES_DB: "db"
+      POSTGRES_PORT: "5432"
+    ports:
+      - "5432:5432"
+    command:
+      - "postgres"
+      - "-c"
+      - "port=5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB -h localhost -p 5432 >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - infrastructure_default
+
+  service-order:
+    image: eduard3000/service-order:latest
+#    build:
+#      context: .
+#      target: service
+    container_name: service-order
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgres://user:password@postgres:5432/db?sslmode=disable
+    ports:
+      - "50051:50051"
+      - "8081:8081"
+    networks:
+      - infrastructure_default
+
+  zookeeper:
+    profiles: ["infra"]
+    image: confluentinc/cp-zookeeper:7.6.1
+    container_name: service-order-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8081/commands/stat >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+    networks:
+      - infrastructure_default
+
+  kafka:
+    profiles: ["infra"]
+    image: confluentinc/cp-kafka:7.6.1
+    container_name: service-order-kafka
+    depends_on:
+      zookeeper:
+        condition: service_healthy
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:29092,PLAINTEXT_HOST://0.0.0.0:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:29092 --list >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+    networks:
+      - infrastructure_default
+
+  kafka-init:
+    profiles: ["infra"]
+    image: confluentinc/cp-kafka:7.6.1
+    container_name: service-order-kafka-init
+    depends_on:
+      kafka:
+        condition: service_healthy
+    command:
+      - /bin/bash
+      - -lc
+      - |
+          set -euo pipefail
+
+          create_topic_with_retry() {
+            local topic="$$1"
+
+            if [ -z "$$topic" ]; then
+              echo "Topic name is empty!"
+              return 1
+            fi
+
+            for i in {1..10}; do
+              if kafka-topics --bootstrap-server kafka:29092 \
+                --create --if-not-exists --topic "$$topic" \
+                --partitions 1 --replication-factor 1; then
+                echo "Topic '$$topic' is ready"
+                return 0
+              fi
+              echo "Retrying topic creation for '$$topic' ($$i/10)..."
+              sleep 2
+            done
+
+            echo "Failed to create topic '$$topic' after retries"
+            return 1
+          }
+
+          create_topic_with_retry numbers
+          create_topic_with_retry numbers-dlq
+    networks:
+      - infrastructure_default
+
+  clickhouse:
+    profiles: ["infra"]
+    image: clickhouse/clickhouse-server:24.8
+    container_name: service-order-clickhouse
+    depends_on:
+      kafka-init:
+        condition: service_completed_successfully
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+      - ./infra/clickhouse/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8123/ping | grep -q Ok"]
+      interval: 5s
+      timeout: 3s
+      retries: 60
+      start_period: 10s
+    networks:
+      - infrastructure_default
+
+  kafka-seed:
+    profiles: ["infra"]
+    image: confluentinc/cp-kafka:7.6.1
+    container_name: service-order-kafka-seed
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+    command:
+      - /bin/bash
+      - -lc
+      - |
+          set -euo pipefail
+          printf '10\n-4\n3\n-8\nabc\n15\n' | \
+            kafka-console-producer --bootstrap-server kafka:29092 --topic numbers
+          echo "Seed messages published to topic 'numbers'"
+    restart: "no"
+    networks:
+      - infrastructure_default
+
+  # -------------------------
+  # MONITORING PROFILE
+  # -------------------------
+  prometheus:
+    profiles: ["monitoring"]
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9090/-/ready >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+    networks:
+      - infrastructure_default
+
+  grafana:
+    profiles: ["monitoring"]
+    image: grafana/grafana:latest
+    container_name: grafana
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health | grep -q '\"database\"'"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+    networks:
+      - infrastructure_default
+
+networks:
+  infrastructure_default:
+    name: infrastructure_default
+
+volumes:
+  pgdata:
+  prometheus-data:
+  grafana-data:
+  clickhouse-data:
