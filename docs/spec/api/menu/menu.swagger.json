@@ -153,6 +153,9 @@
                 "price": {
                   "type": "number",
                   "format": "double"
+                },
+                "imageUrl": {
+                  "type": "string"
                 }
               }
             }
@@ -251,6 +254,9 @@
         "price": {
           "type": "number",
           "format": "double"
+        },
+        "imageUrl": {
+          "type": "string"
         }
       }
     },
@@ -306,6 +312,9 @@
         },
         "active": {
           "type": "boolean"
+        },
+        "imageUrl": {
+          "type": "string"
         }
       }
     },

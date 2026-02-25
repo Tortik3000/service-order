@@ -3,13 +3,12 @@ package order
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/Tortik3000/service-order/internal/domain/entity"
 )
 
 type Usecase interface {
-	CreateOrder(ctx context.Context, userID, restaurantID string, items []entity.OrderItem) (*entity.Order, error)
+	CreateOrder(ctx context.Context, userID, restaurantID string, items []entity.OrderItem, pickUp bool) (*entity.Order, error)
 	GetOrder(ctx context.Context, id string) (*entity.Order, error)
 	ListUserOrders(ctx context.Context, userID string, limit, offset int32) ([]entity.Order, error)
 	ListOrdersByStatus(ctx context.Context, statuses []entity.OrderStatus, limit, offset int32) ([]entity.Order, error)
@@ -56,7 +55,7 @@ func NewUseCase(
 	}
 }
 
-func (u *useCase) CreateOrder(ctx context.Context, userID, restaurantID string, items []entity.OrderItem) (*entity.Order, error) {
+func (u *useCase) CreateOrder(ctx context.Context, userID, restaurantID string, items []entity.OrderItem, pickUp bool) (*entity.Order, error) {
 	var totalAmount int64
 	for i, item := range items {
 		menuItem, err := u.menuRepo.GetMenuItem(ctx, item.MenuItemID)
@@ -68,13 +67,12 @@ func (u *useCase) CreateOrder(ctx context.Context, userID, restaurantID string, 
 	}
 
 	order := &entity.Order{
-		ID:           fmt.Sprintf("ord_%d", time.Now().UnixNano()),
 		UserID:       userID,
 		RestaurantID: restaurantID,
 		Status:       entity.OrderStatusAwaitingPayment,
 		TotalAmount:  totalAmount,
 		Items:        items,
-		CreatedAt:    time.Now().Unix(),
+		PickUp:       pickUp,
 	}
 
 	err := u.transactor.WithTx(ctx, func(ctx context.Context) error {

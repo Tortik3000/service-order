@@ -70,6 +70,7 @@ func (h *handler) CreateMenuItem(ctx context.Context, req *menu.CreateMenuItemRe
 		Description: req.Description,
 		Price:       req.Price,
 		Active:      true,
+		ImageURL:    req.ImageUrl,
 	}
 	if err := h.uc.CreateMenuItem(ctx, it); err != nil {
 		return nil, err
@@ -88,6 +89,7 @@ func (h *handler) UpdateMenuItem(ctx context.Context, req *menu.UpdateMenuItemRe
 		Description: req.Description,
 		Price:       req.Price,
 		Active:      true,
+		ImageURL:    req.ImageUrl,
 	}
 	if err := h.uc.UpdateMenuItem(ctx, it); err != nil {
 		return nil, err
@@ -125,5 +127,6 @@ func mapMenuItemToProto(m *entity.MenuItem) *menu.MenuItem {
 		Description: m.Description,
 		Price:       int64(m.Price),
 		Active:      m.Active,
+		ImageUrl:    m.ImageURL,
 	}
 }

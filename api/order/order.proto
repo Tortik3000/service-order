@@ -34,6 +34,8 @@ message Order {
   int64 total_amount = 5 [(validate.rules).int64.gt = 0];
   repeated OrderItem items = 6 [(validate.rules).repeated.min_items = 1];
   int64 created_at = 7;
+  int64 updated_at = 8;
+  bool pick_up = 9;
 }
 
 
@@ -88,6 +90,7 @@ message CreateOrderRequest {
   string user_id = 1 [(validate.rules).string.uuid = true];
   string restaurant_id = 2;
   repeated OrderItem items = 3 [(validate.rules).repeated.min_items = 1];
+  bool pick_up = 4;
 }
 
 message CreateOrderResponse {

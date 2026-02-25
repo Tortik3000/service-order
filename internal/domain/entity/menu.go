@@ -13,4 +13,5 @@ type MenuItem struct {
 	Description string
 	Price       float64
 	Active      bool
+	ImageURL    string
 }

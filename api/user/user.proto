@@ -11,6 +11,7 @@ import "google/protobuf/timestamp.proto";
 message User {
   string id = 1;
   string phone = 2 [(validate.rules).string.min_len = 10];
+  string name = 3;
 }
 
 
@@ -26,6 +27,7 @@ service UserService {
 
 message RegisterUserRequest {
   string phone = 1 [(validate.rules).string.min_len = 10];
+  string name = 2;
 }
 
 message RegisterUserResponse {

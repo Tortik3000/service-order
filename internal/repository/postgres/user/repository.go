@@ -12,10 +12,10 @@ import (
 )
 
 const (
-	userTable        = "customer"
-	userID           = "id"
-	userPhone        = "phone"
-	userPasswordHash = "password_hash"
+	userTable = "customer"
+	userID    = "id"
+	userPhone = "phone"
+	userName  = "name"
 )
 
 type Repository interface {
@@ -46,8 +46,8 @@ func New(transactor txManager) *repository {
 func (r *repository) Create(ctx context.Context, user *entity.User) error {
 	query := r.queryBuilder.
 		Insert(userTable).
-		Columns(userPhone, userPasswordHash).
-		Values(user.Phone, "").
+		Columns(userPhone, userName).
+		Values(user.Phone, user.Name).
 		Suffix("RETURNING id")
 
 	sql, args, err := query.ToSql()
@@ -70,7 +70,7 @@ func (r *repository) Create(ctx context.Context, user *entity.User) error {
 
 func (r *repository) GetByPhone(ctx context.Context, phone string) (*entity.User, error) {
 	query := r.queryBuilder.
-		Select(userID, userPhone).
+		Select(userID, userPhone, userName).
 		From(userTable).
 		Where(sq.Eq{userPhone: phone})
 
@@ -85,7 +85,7 @@ func (r *repository) GetByPhone(ctx context.Context, phone string) (*entity.User
 	}
 
 	user := &entity.User{}
-	err = conn.QueryRow(ctx, sql, args...).Scan(&user.ID, &user.Phone)
+	err = conn.QueryRow(ctx, sql, args...).Scan(&user.ID, &user.Phone, &user.Name)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, nil

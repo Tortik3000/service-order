@@ -295,6 +295,10 @@ func (m *Order) validate(all bool) error {
 
 	// no validation rules for CreatedAt
 
+	// no validation rules for UpdatedAt
+
+	// no validation rules for PickUp
+
 	if len(errors) > 0 {
 		return OrderMultiError(errors)
 	}
@@ -460,6 +464,8 @@ func (m *CreateOrderRequest) validate(all bool) error {
 		}
 
 	}
+
+	// no validation rules for PickUp
 
 	if len(errors) > 0 {
 		return CreateOrderRequestMultiError(errors)

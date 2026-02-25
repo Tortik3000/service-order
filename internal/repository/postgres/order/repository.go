@@ -3,6 +3,7 @@ package order
 import (
 	"context"
 	"fmt"
+	"time"
 
 	sq "github.com/Masterminds/squirrel"
 	"github.com/Tortik3000/service-order/pkg/postgres"
@@ -17,6 +18,9 @@ const (
 	orderCustomerID  = "customer_id"
 	orderStatus      = "status"
 	orderTotalAmount = "total_amount"
+	orderPickUp      = "pick_up"
+	orderCreatedAt   = "created_at"
+	orderUpdatedAt   = "updated_at"
 
 	orderItemTable      = "order_item"
 	orderItemOrderID    = "order_id"
@@ -57,9 +61,9 @@ func New(transactor txManager) *repository {
 func (r *repository) Create(ctx context.Context, order *entity.Order) error {
 	query := r.queryBuilder.
 		Insert(orderTable).
-		Columns(orderCustomerID, orderStatus, orderTotalAmount).
-		Values(order.UserID, order.Status.String(), order.TotalAmount).
-		Suffix("RETURNING id")
+		Columns(orderCustomerID, orderStatus, orderTotalAmount, orderPickUp).
+		Values(order.UserID, order.Status, order.TotalAmount, order.PickUp).
+		Suffix(fmt.Sprintf("RETURNING %s, %s, %s", orderID, orderCreatedAt, orderUpdatedAt))
 
 	sql, args, err := query.ToSql()
 	if err != nil {
@@ -71,10 +75,14 @@ func (r *repository) Create(ctx context.Context, order *entity.Order) error {
 		return err
 	}
 
-	err = conn.QueryRow(ctx, sql, args...).Scan(&order.ID)
+	var createdAt, updatedAt time.Time
+	err = conn.QueryRow(ctx, sql, args...).Scan(&order.ID, &createdAt, &updatedAt)
 	if err != nil {
 		return fmt.Errorf("insert order: %w", err)
 	}
+
+	order.CreatedAt = createdAt.Unix()
+	order.UpdatedAt = updatedAt.Unix()
 
 	return nil
 }
@@ -107,7 +115,7 @@ func (r *repository) CreateItems(ctx context.Context, orderID string, items []en
 
 func (r *repository) Get(ctx context.Context, id string) (*entity.Order, error) {
 	query := r.queryBuilder.
-		Select(orderID, orderCustomerID, orderStatus, orderTotalAmount).
+		Select(orderID, orderCustomerID, orderStatus, orderTotalAmount, orderPickUp, orderCreatedAt, orderUpdatedAt).
 		From(orderTable).
 		Where(sq.Eq{orderID: id})
 
@@ -122,15 +130,16 @@ func (r *repository) Get(ctx context.Context, id string) (*entity.Order, error) 
 	}
 
 	order := &entity.Order{}
-	var statusStr string
-	err = conn.QueryRow(ctx, sql, args...).Scan(&order.ID, &order.UserID, &statusStr, &order.TotalAmount)
+	var createdAt, updatedAt time.Time
+	err = conn.QueryRow(ctx, sql, args...).Scan(&order.ID, &order.UserID, &order.Status, &order.TotalAmount, &order.PickUp, &createdAt, &updatedAt)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return nil, nil
 		}
 		return nil, fmt.Errorf("scan order: %w", err)
 	}
-	order.Status = entity.OrderStatusFromString(statusStr)
+	order.CreatedAt = createdAt.Unix()
+	order.UpdatedAt = updatedAt.Unix()
 
 	itemsQuery := r.queryBuilder.
 		Select(orderItemMenuItemID, orderItemQuantity, orderItemUnitPrice).
@@ -162,7 +171,8 @@ func (r *repository) Get(ctx context.Context, id string) (*entity.Order, error) 
 func (r *repository) UpdateStatus(ctx context.Context, id string, status entity.OrderStatus) error {
 	query := r.queryBuilder.
 		Update(orderTable).
-		Set(orderStatus, status.String()).
+		Set(orderStatus, status).
+		Set(orderUpdatedAt, "NOW()").
 		Where(sq.Eq{orderID: id})
 
 	sql, args, err := query.ToSql()
@@ -185,9 +195,10 @@ func (r *repository) UpdateStatus(ctx context.Context, id string, status entity.
 
 func (r *repository) ListByUser(ctx context.Context, userID string, limit, offset int32) ([]entity.Order, error) {
 	query := r.queryBuilder.
-		Select(orderID, orderCustomerID, orderStatus, orderTotalAmount).
+		Select(orderID, orderCustomerID, orderStatus, orderTotalAmount, orderPickUp, orderCreatedAt, orderUpdatedAt).
 		From(orderTable).
 		Where(sq.Eq{orderCustomerID: userID}).
+		OrderBy(fmt.Sprintf("%s DESC", orderCreatedAt)).
 		Limit(uint64(limit)).
 		Offset(uint64(offset))
 
@@ -210,11 +221,12 @@ func (r *repository) ListByUser(ctx context.Context, userID string, limit, offse
 	var orders []entity.Order
 	for rows.Next() {
 		var order entity.Order
-		var statusStr string
-		if err := rows.Scan(&order.ID, &order.UserID, &statusStr, &order.TotalAmount); err != nil {
+		var createdAt, updatedAt time.Time
+		if err := rows.Scan(&order.ID, &order.UserID, &order.Status, &order.TotalAmount, &order.PickUp, &createdAt, &updatedAt); err != nil {
 			return nil, fmt.Errorf("scan order: %w", err)
 		}
-		order.Status = entity.OrderStatusFromString(statusStr)
+		order.CreatedAt = createdAt.Unix()
+		order.UpdatedAt = updatedAt.Unix()
 		orders = append(orders, order)
 	}
 
@@ -226,15 +238,11 @@ func (r *repository) ListByStatus(ctx context.Context, statuses []entity.OrderSt
 		return nil, nil
 	}
 
-	statusStrings := make([]string, len(statuses))
-	for i, s := range statuses {
-		statusStrings[i] = s.String()
-	}
-
 	query := r.queryBuilder.
-		Select(orderID, orderCustomerID, orderStatus, orderTotalAmount).
+		Select(orderID, orderCustomerID, orderStatus, orderTotalAmount, orderPickUp, orderCreatedAt, orderUpdatedAt).
 		From(orderTable).
-		Where(sq.Eq{orderStatus: statusStrings}).
+		Where(sq.Eq{orderStatus: statuses}).
+		OrderBy(fmt.Sprintf("%s DESC", orderCreatedAt)).
 		Limit(uint64(limit)).
 		Offset(uint64(offset))
 
@@ -257,11 +265,12 @@ func (r *repository) ListByStatus(ctx context.Context, statuses []entity.OrderSt
 	var orders []entity.Order
 	for rows.Next() {
 		var order entity.Order
-		var statusStr string
-		if err := rows.Scan(&order.ID, &order.UserID, &statusStr, &order.TotalAmount); err != nil {
+		var createdAt, updatedAt time.Time
+		if err := rows.Scan(&order.ID, &order.UserID, &order.Status, &order.TotalAmount, &order.PickUp, &createdAt, &updatedAt); err != nil {
 			return nil, fmt.Errorf("scan order: %w", err)
 		}
-		order.Status = entity.OrderStatusFromString(statusStr)
+		order.CreatedAt = createdAt.Unix()
+		order.UpdatedAt = updatedAt.Unix()
 		orders = append(orders, order)
 	}
 

@@ -7,7 +7,7 @@ import (
 )
 
 type Usecase interface {
-	RegisterUser(ctx context.Context, phone string) (*entity.User, error)
+	RegisterUser(ctx context.Context, phone string, name string) (*entity.User, error)
 }
 
 type (
@@ -27,7 +27,7 @@ func NewUseCase(userRepo userRepository) *useCase {
 	return &useCase{userRepo: userRepo}
 }
 
-func (u *useCase) RegisterUser(ctx context.Context, phone string) (*entity.User, error) {
+func (u *useCase) RegisterUser(ctx context.Context, phone string, name string) (*entity.User, error) {
 	user, err := u.userRepo.GetByPhone(ctx, phone)
 	if err != nil {
 		return nil, err
@@ -38,6 +38,7 @@ func (u *useCase) RegisterUser(ctx context.Context, phone string) (*entity.User,
 
 	user = &entity.User{
 		Phone: phone,
+		Name:  name,
 	}
 	if err := u.userRepo.Create(ctx, user); err != nil {
 		return nil, err

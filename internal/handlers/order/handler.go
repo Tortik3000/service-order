@@ -18,7 +18,7 @@ type Handler interface {
 
 type (
 	orderUseCase interface {
-		CreateOrder(ctx context.Context, userID, restaurantID string, items []entity.OrderItem) (*entity.Order, error)
+		CreateOrder(ctx context.Context, userID, restaurantID string, items []entity.OrderItem, pickUp bool) (*entity.Order, error)
 		GetOrder(ctx context.Context, id string) (*entity.Order, error)
 		ListUserOrders(ctx context.Context, userID string, limit, offset int32) ([]entity.Order, error)
 		ListOrdersByStatus(ctx context.Context, statuses []entity.OrderStatus, limit, offset int32) ([]entity.Order, error)
@@ -51,7 +51,7 @@ func (h *handler) CreateOrder(ctx context.Context, req *order.CreateOrderRequest
 		}
 	}
 
-	o, err := h.uc.CreateOrder(ctx, req.UserId, req.RestaurantId, items)
+	o, err := h.uc.CreateOrder(ctx, req.UserId, req.RestaurantId, items, req.PickUp)
 	if err != nil {
 		return nil, err
 	}
@@ -137,5 +137,7 @@ func mapOrderToProto(o *entity.Order) *order.Order {
 		TotalAmount:  o.TotalAmount,
 		Items:        items,
 		CreatedAt:    o.CreatedAt,
+		UpdatedAt:    o.UpdatedAt,
+		PickUp:       o.PickUp,
 	}
 }

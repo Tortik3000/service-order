@@ -25,6 +25,7 @@ const (
 	itemDescription = "description"
 	itemPrice       = "price"
 	itemActive      = "active"
+	itemImageURL    = "image_url"
 )
 
 type Repository interface {
@@ -86,7 +87,7 @@ func (r *repository) GetCategory(ctx context.Context, id string) (*entity.Catego
 
 func (r *repository) GetItemsByCategory(ctx context.Context, catID string) ([]entity.MenuItem, error) {
 	query := r.queryBuilder.
-		Select(itemID, itemCategoryID, itemName, itemDescription, itemPrice, itemActive).
+		Select(itemID, itemCategoryID, itemName, itemDescription, itemPrice, itemActive, itemImageURL).
 		From(itemTable).
 		Where(sq.Eq{itemCategoryID: catID})
 
@@ -109,7 +110,7 @@ func (r *repository) GetItemsByCategory(ctx context.Context, catID string) ([]en
 	var items []entity.MenuItem
 	for rows.Next() {
 		var item entity.MenuItem
-		err := rows.Scan(&item.ID, &item.CategoryID, &item.Name, &item.Description, &item.Price, &item.Active)
+		err := rows.Scan(&item.ID, &item.CategoryID, &item.Name, &item.Description, &item.Price, &item.Active, &item.ImageURL)
 		if err != nil {
 			return nil, fmt.Errorf("scan item: %w", err)
 		}
@@ -121,7 +122,7 @@ func (r *repository) GetItemsByCategory(ctx context.Context, catID string) ([]en
 
 func (r *repository) GetMenuItem(ctx context.Context, id string) (*entity.MenuItem, error) {
 	query := r.queryBuilder.
-		Select(itemID, itemCategoryID, itemName, itemDescription, itemPrice, itemActive).
+		Select(itemID, itemCategoryID, itemName, itemDescription, itemPrice, itemActive, itemImageURL).
 		From(itemTable).
 		Where(sq.Eq{itemID: id})
 
@@ -136,7 +137,7 @@ func (r *repository) GetMenuItem(ctx context.Context, id string) (*entity.MenuIt
 	}
 
 	item := &entity.MenuItem{}
-	err = conn.QueryRow(ctx, sql, args...).Scan(&item.ID, &item.CategoryID, &item.Name, &item.Description, &item.Price, &item.Active)
+	err = conn.QueryRow(ctx, sql, args...).Scan(&item.ID, &item.CategoryID, &item.Name, &item.Description, &item.Price, &item.Active, &item.ImageURL)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, nil
@@ -150,8 +151,8 @@ func (r *repository) GetMenuItem(ctx context.Context, id string) (*entity.MenuIt
 func (r *repository) CreateMenuItem(ctx context.Context, item *entity.MenuItem) error {
 	query := r.queryBuilder.
 		Insert(itemTable).
-		Columns(itemCategoryID, itemName, itemDescription, itemPrice, itemActive).
-		Values(item.CategoryID, item.Name, item.Description, item.Price, item.Active).
+		Columns(itemCategoryID, itemName, itemDescription, itemPrice, itemActive, itemImageURL).
+		Values(item.CategoryID, item.Name, item.Description, item.Price, item.Active, item.ImageURL).
 		Suffix("RETURNING id")
 
 	sql, args, err := query.ToSql()
@@ -180,6 +181,7 @@ func (r *repository) UpdateMenuItem(ctx context.Context, item *entity.MenuItem) 
 		Set(itemDescription, item.Description).
 		Set(itemPrice, item.Price).
 		Set(itemActive, item.Active).
+		Set(itemImageURL, item.ImageURL).
 		Where(sq.Eq{itemID: item.ID})
 
 	sql, args, err := query.ToSql()

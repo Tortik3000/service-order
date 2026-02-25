@@ -69,6 +69,8 @@ func (m *User) validate(all bool) error {
 		errors = append(errors, err)
 	}
 
+	// no validation rules for Name
+
 	if len(errors) > 0 {
 		return UserMultiError(errors)
 	}
@@ -178,6 +180,8 @@ func (m *RegisterUserRequest) validate(all bool) error {
 		}
 		errors = append(errors, err)
 	}
+
+	// no validation rules for Name
 
 	if len(errors) > 0 {
 		return RegisterUserRequestMultiError(errors)

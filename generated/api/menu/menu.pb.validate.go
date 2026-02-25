@@ -223,6 +223,8 @@ func (m *MenuItem) validate(all bool) error {
 
 	// no validation rules for Active
 
+	// no validation rules for ImageUrl
+
 	if len(errors) > 0 {
 		return MenuItemMultiError(errors)
 	}
@@ -872,6 +874,8 @@ func (m *CreateMenuItemRequest) validate(all bool) error {
 		errors = append(errors, err)
 	}
 
+	// no validation rules for ImageUrl
+
 	if len(errors) > 0 {
 		return CreateMenuItemRequestMultiError(errors)
 	}
@@ -1160,6 +1164,8 @@ func (m *UpdateMenuItemRequest) validate(all bool) error {
 		}
 		errors = append(errors, err)
 	}
+
+	// no validation rules for ImageUrl
 
 	if len(errors) > 0 {
 		return UpdateMenuItemRequestMultiError(errors)

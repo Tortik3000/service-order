@@ -21,6 +21,7 @@ message MenuItem {
   string description = 4;
   int64 price = 5 [(validate.rules).int64.gt = 0];
   bool active = 6;
+  string image_url = 7;
 }
 
 service MenuService {
@@ -86,6 +87,7 @@ message CreateMenuItemRequest {
   string name = 3 [(validate.rules).string.min_len = 1];
   string description = 4;
   double price = 5 [(validate.rules).double.gt = 0];
+  string image_url = 6;
 }
 
 message CreateMenuItemResponse {
@@ -98,6 +100,7 @@ message UpdateMenuItemRequest {
   string name = 3 [(validate.rules).string.min_len = 1];
   string description = 4;
   double price = 5 [(validate.rules).double.gt = 0];
+  string image_url = 6;
 }
 
 message UpdateMenuItemResponse {

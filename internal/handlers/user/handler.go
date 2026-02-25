@@ -13,7 +13,7 @@ type Handler interface {
 
 type (
 	userUseCase interface {
-		RegisterUser(ctx context.Context, phone string) (*entity.User, error)
+		RegisterUser(ctx context.Context, phone string, name string) (*entity.User, error)
 	}
 )
 
@@ -32,7 +32,7 @@ func (h *handler) RegisterUser(ctx context.Context, req *user.RegisterUserReques
 	if err := req.Validate(); err != nil {
 		return nil, err
 	}
-	u, err := h.uc.RegisterUser(ctx, req.Phone)
+	u, err := h.uc.RegisterUser(ctx, req.Phone, req.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -46,5 +46,6 @@ func mapUserToProto(u *entity.User) *user.User {
 	return &user.User{
 		Id:    u.ID,
 		Phone: u.Phone,
+		Name:  u.Name,
 	}
 }

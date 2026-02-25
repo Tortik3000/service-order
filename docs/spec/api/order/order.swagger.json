@@ -292,6 +292,9 @@
             "type": "object",
             "$ref": "#/definitions/orderOrderItem"
           }
+        },
+        "pickUp": {
+          "type": "boolean"
         }
       }
     },
@@ -364,6 +367,13 @@
         "createdAt": {
           "type": "string",
           "format": "int64"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "int64"
+        },
+        "pickUp": {
+          "type": "boolean"
         }
       }
     },
